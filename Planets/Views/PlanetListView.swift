@@ -10,6 +10,7 @@ import SwiftUI
 struct PlanetListView: View {
     @ObservedObject var viewModel: PlanetsViewModel
     @State private var showAlert: (Bool, String) = (false, "")
+    @State private var selectedPlanetOnLaunch: Planet?
     
     init(viewModel: PlanetsViewModel) {
         self.viewModel = viewModel
@@ -19,27 +20,29 @@ struct PlanetListView: View {
         NavigationView {
             ZStack {
                 switch viewModel.viewState {
-                    case .loading:
-                        ProgressView().progressViewStyle(.circular)
-                        
-                    case .content(let planets):
-                        content(planets)
-                            .refreshable {
-                                viewModel.getPlanetsData()
-                            }
-                        
-                    case .empty:
-                        emptyDataView()
+                case .loading:
+                    ProgressView().progressViewStyle(.circular)
+                    
+                case .content(let planets):
+                    content(planets)
+                        .onAppear {
+                            selectedPlanetOnLaunch = planets.first
+                        }
+                        .refreshable {
+                            viewModel.getPlanetsData()
+                        }
+                    
+                case .empty:
+                    emptyDataView()
                 }
             }
-            
             .onAppear {
                 viewModel.getPlanetsData()
             }
             .onReceive(viewModel.viewChangingStateEvents, perform: { viewEvent in
                 switch viewEvent {
-                    case .showErrorAlert(let message):
-                        showAlert = (true, message)
+                case .showErrorAlert(let message):
+                    showAlert = (true, message)
                 }
             })
             .alert(isPresented: $showAlert.0) {
@@ -52,8 +55,8 @@ struct PlanetListView: View {
                     })
             }
             .navigationTitle("Planets")
+            PlanetDetailView(planet: selectedPlanetOnLaunch)
         }
-        .navigationViewStyle(.stack)
     }
 }
 
@@ -109,7 +112,7 @@ extension PlanetListView {
                     Text("Refresh")
                 }
             }
-
+            
         }
     }
 }

@@ -9,71 +9,70 @@ import XCTest
 @testable import Planets
 
 final class PlanetsViewModelTests: XCTestCase {
-
+    
     func test_init_viewStateIsLoading() {
-        let (sut, _) = makeSUT()
+        let sut = makeSUT()
         
         XCTAssertEqual(sut.viewState, .loading)
     }
     
     func test_emptyViewState_success_with_no_data() {
-        let (sut, service) = makeSUT()
-
-        expect(sut) {
-            service.complete(completion: .success([]))
-        }
-
+        // Given
+        let sut = makeSUT()
+        // When
+        sut.getPlanetsData()
+        executeRunLoop()
+        
+        // Then
         XCTAssertEqual(sut.viewState, .empty)
     }
     
     func test_contentViewState_success_with_data() {
-        let (sut, service) = makeSUT()
-        let item1 = Planet(name: "planet1", diameter: "1234")
-        let item2 = Planet(name: "planet2", diameter: "1234")
-
-        expect(sut) {
-            service.complete(completion: .success([item1, item2]))
-        }
-
-        XCTAssertEqual(sut.viewState, .content([item1, item2]))
+        // Given
+        let sut = makeSUT(result: .success([.mockItem1]))
+        // When
+        sut.getPlanetsData()
+        executeRunLoop()
+        
+        // Then
+        XCTAssertEqual(sut.viewState, .content([.mockItem1]))
     }
     
     func test_emptyViewState_failure_with_error() {
-        let (sut, service) = makeSUT()
+        // Given
+        let sut = makeSUT(result: .failure(.emptyData))
+        // When
+        sut.getPlanetsData()
+        executeRunLoop()
         
-        expect(sut) {
-            service.complete(completion: .failure(.apiError("connection error")))
-        }
-        
+        // Then
         XCTAssertEqual(sut.viewState, .empty)
     }
     
     //MARK: Helper Methods
-    func makeSUT() -> (PlanetsViewModel, MockPlanetService) {
-        let service = MockPlanetService()
-        return (PlanetsViewModel(service: service), service)
+    func makeSUT(result: Result<[Planet], NetworkError> = .success([])) -> PlanetsViewModel {
+        let service = MockPlanetService(result: result)
+        return PlanetsViewModel(service: service)
     }
-    
-    func expect(_ sut: PlanetsViewModel, when action: () -> Void) {
-        action()
-        sut.getPlanetsData()
-        executeRunLoop()
-    }
-    
+        
     func executeRunLoop() {
-        RunLoop.current.run(until: Date()+5)
+        RunLoop.current.run(until: Date()+1)
     }
 }
 
-class MockPlanetService: PlanetsService {
-    private var messages = [Result<[Planet], NetworkError>]()
+private extension Planet {
+    static let mockItem1 = Self(name: "planet1", diameter: "1234")
+}
+
+private class MockPlanetService: PlanetsService {
+    let result: Result<[Planet], NetworkError>
     
-    func getPlanetsData(completion: @escaping (Result<[Planet], NetworkError>) -> Void) {
-        completion(messages.first!)
+    init(result: Result<[Planet], NetworkError>) {
+        self.result = result
     }
     
-    func complete(completion:  Result<[Planet], NetworkError>) {
-        messages.append(completion)
+    func getPlanetsData(completion: @escaping (Result<[Planet], NetworkError>) -> Void) {
+        completion(result)
     }
 }
 
