@@ -18,41 +18,34 @@ struct NetworkManager {
         method: HTTPMethod,
         endpoint: APIEndpoint,
         dictionary:[String:String]?,
-        type: T.Type,
-        completion: @escaping (Result<T, NetworkError>) -> Void
-    ) {
+        type: T.Type
+    ) async throws -> T {
         
         /// Get the urlString from constants
         guard let urlString = endpoint.path.isEmpty ? "\(endpoint.baseURL)" : endpoint.baseURL.appendingPathComponent(endpoint.path).absoluteString.removingPercentEncoding else {
-            return completion(.failure(.invalidUrl))
+            throw NetworkError.invalidUrl
         }
         
         /// Create the url from urlString
         guard let url = URL(string: urlString) else {
-            return completion(.failure(.invalidUrl))
+            throw NetworkError.invalidUrl
         }
-                
+        
         /// Call the DataTask closer from URLSession shared instance
-        URLSession.shared.dataTask(with: URLRequest(url: url)) { (data, response, error) in
-            
-            /// guard for the error situation
-            guard error == nil else {
-                return completion(.failure(.apiError(error!.localizedDescription)))
-            }
-            
-            guard let data = data else {
-                return completion(.failure(.emptyData))
-            }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
             
             let response = ResponseDecoder()
             
             do {
                 let decoded = try response.decode(type.self, data: data)
-                completion(.success(decoded!))
+                return decoded!
             } catch let error {
-                completion(.failure(.parsingError(error.localizedDescription)))
+                throw NetworkError.parsingError(error.localizedDescription)
             }
-        }.resume()
+        } catch let error {
+            throw NetworkError.apiError(error.localizedDescription)
+        }
     }
 }
 

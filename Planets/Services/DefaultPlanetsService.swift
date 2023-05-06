@@ -9,7 +9,7 @@ import Foundation
 
 /// Protocol to notify Success or Failure of the API call
 protocol PlanetsService {
-    func getPlanetsData(completion: @escaping (Result<[Planet], NetworkError>) -> Void)
+    func getPlanetsData() async throws -> [Planet]
 }
 
 /// service for handling api calls
@@ -22,20 +22,20 @@ struct DefaultPlanetsService: PlanetsService
     }
     
     /// Function to make API call to get the  Planet data
-    func getPlanetsData(completion: @escaping (Result<[Planet], NetworkError>) -> Void) {
+    ///
+    @MainActor
+    func getPlanetsData() async throws -> [Planet] {
         let planets = offlineService.fetch()
         if planets.isEmpty {
-            NetworkManager.getData(method: .GET, endpoint: .planets, dictionary: nil, type: Planets.self) { result in
-                switch result {
-                    case .success(let data):
-                        savePlanetsOffline(data.results)
-                        completion(.success(data.results))
-                    case .failure(let error):
-                        completion(.failure(error))
-                }
+            do {
+                let data = try await NetworkManager.getData(method: .GET, endpoint: .planets, dictionary: nil, type: Planets.self)
+                savePlanetsOffline(data.results)
+                return data.results
+            } catch let error {
+                throw error
             }
         } else {
-            completion(.success(planets))
+            return planets
         }
     }
     

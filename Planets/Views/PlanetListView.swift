@@ -18,44 +18,54 @@ struct PlanetListView: View {
     
     var body: some View {
         NavigationView {
-            ZStack {
-                switch viewModel.viewState {
-                case .loading:
-                    ProgressView().progressViewStyle(.circular)
-                    
-                case .content(let planets):
-                    content(planets)
-                        .onAppear {
-                            selectedPlanetOnLaunch = planets.first
-                        }
-                        .refreshable {
-                            viewModel.getPlanetsData()
-                        }
-                    
-                case .empty:
-                    emptyDataView()
+            stateView
+                .navigationTitle("Planets")
+        }
+    }
+    
+    @ViewBuilder
+    var stateView: some View {
+        switch viewModel.viewState {
+        case .loading:
+            ProgressView().progressViewStyle(.circular)
+                .onAppear {
+                    Task {
+                        await viewModel.getPlanetsData()
+                    }
                 }
-            }
-            .onAppear {
-                viewModel.getPlanetsData()
-            }
-            .onReceive(viewModel.viewChangingStateEvents, perform: { viewEvent in
-                switch viewEvent {
-                case .showErrorAlert(let message):
-                    showAlert = (true, message)
+            
+        case .content(let planets):
+            content(planets)
+                .refreshable {
+                    Task {
+                        await viewModel.getPlanetsData()
+                    }
                 }
-            })
-            .alert(isPresented: $showAlert.0) {
-                Alert(
-                    title: Text("Error"),
-                    message: Text(showAlert.1),
-                    primaryButton: .default(Text("Cancel")),
-                    secondaryButton: .default(Text("Retry")) {
-                        viewModel.getPlanetsData()
-                    })
+            
+            if UIDevice.isPad {
+                PlanetDetailView(planet: planets.first)
+                    .navigationTitle("")
             }
-            .navigationTitle("Planets")
-            PlanetDetailView(planet: selectedPlanetOnLaunch)
+            
+        case .empty:
+            emptyDataView()
+                .onReceive(viewModel.viewChangingStateEvents, perform: { viewEvent in
+                    switch viewEvent {
+                    case .showErrorAlert(let message):
+                        showAlert = (true, message)
+                    }
+                })
+                .alert(isPresented: $showAlert.0) {
+                    Alert(
+                        title: Text("Error"),
+                        message: Text(showAlert.1),
+                        primaryButton: .default(Text("Cancel")),
+                        secondaryButton: .default(Text("Retry")) {
+                            Task {
+                                await viewModel.getPlanetsData()
+                            }
+                        })
+                }
         }
     }
 }
@@ -105,14 +115,22 @@ extension PlanetListView {
                 .padding()
             
             Button {
-                viewModel.getPlanetsData()
+                Task {
+                    await viewModel.getPlanetsData()
+                }
             } label: {
                 HStack {
                     Image(systemName: "icloud.and.arrow.down.fill")
                     Text("Refresh")
                 }
             }
-            
         }
+    }
+}
+
+
+extension UIDevice {
+    static var isPad: Bool {
+        current.userInterfaceIdiom == .pad
     }
 }

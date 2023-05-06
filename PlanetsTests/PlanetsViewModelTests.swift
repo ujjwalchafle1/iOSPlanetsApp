@@ -16,34 +16,34 @@ final class PlanetsViewModelTests: XCTestCase {
         XCTAssertEqual(sut.viewState, .loading)
     }
     
-    func test_emptyViewState_success_with_no_data() {
+    func test_emptyViewState_success_with_no_data() async {
         // Given
-        let sut = makeSUT()
+        let sut = makeSUT(result: .success([]))
+        
         // When
-        sut.getPlanetsData()
-        executeRunLoop()
+        await sut.getPlanetsData()
         
         // Then
         XCTAssertEqual(sut.viewState, .empty)
     }
     
-    func test_contentViewState_success_with_data() {
+    func test_contentViewState_success_with_data() async {
         // Given
         let sut = makeSUT(result: .success([.mockItem1]))
+        
         // When
-        sut.getPlanetsData()
-        executeRunLoop()
+        await sut.getPlanetsData()
         
         // Then
         XCTAssertEqual(sut.viewState, .content([.mockItem1]))
     }
     
-    func test_emptyViewState_failure_with_error() {
+    func test_emptyViewState_failure_with_error() async {
         // Given
         let sut = makeSUT(result: .failure(.emptyData))
+        
         // When
-        sut.getPlanetsData()
-        executeRunLoop()
+        await sut.getPlanetsData()
         
         // Then
         XCTAssertEqual(sut.viewState, .empty)
@@ -54,10 +54,6 @@ final class PlanetsViewModelTests: XCTestCase {
         let service = MockPlanetService(result: result)
         return PlanetsViewModel(service: service)
     }
-        
-    func executeRunLoop() {
-        RunLoop.current.run(until: Date()+1)
-    }
 }
 
 private extension Planet {
@@ -65,14 +61,20 @@ private extension Planet {
 }
 
 private class MockPlanetService: PlanetsService {
+    
     let result: Result<[Planet], NetworkError>
     
     init(result: Result<[Planet], NetworkError>) {
         self.result = result
     }
-    
-    func getPlanetsData(completion: @escaping (Result<[Planet], NetworkError>) -> Void) {
-        completion(result)
+        
+    func getPlanetsData() async throws -> [Planet] {
+        switch result {
+        case .success(let planets):
+            return planets
+        case .failure(let error):
+            throw error
+        }
     }
 }
 

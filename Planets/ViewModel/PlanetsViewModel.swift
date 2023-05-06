@@ -36,17 +36,14 @@ final class PlanetsViewModel: ObservableObject {
         self.viewChangingStateEvents = _viewChangingStateEvents.eraseToAnyPublisher()
     }
     
-    func getPlanetsData() {
-        service.getPlanetsData { result in
-            DispatchQueue.main.async {
-                switch result {
-                    case .success(let planets):
-                        self.viewState = planets.isEmpty ? .empty : .content(planets)
-                    case .failure(let error):
-                        self.viewState = .empty
-                        self._viewChangingStateEvents.send(.showErrorAlert(error.localizedDescription))
-                }
-            }
+    @MainActor
+    func getPlanetsData() async {
+        do {
+            let planets = try await service.getPlanetsData()
+                self.viewState = planets.isEmpty ? .empty : .content(planets)
+        } catch let error {
+                self.viewState = .empty
+                self._viewChangingStateEvents.send(.showErrorAlert(error.localizedDescription))
         }
     }
 }
